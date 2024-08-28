@@ -1,4 +1,6 @@
 # ECE461_Team
 
-Adam Kahl
-Leyton Bostre
+Team Members:
+Adam Kahl,
+Leyton Bostre,
+Anish Sudini
