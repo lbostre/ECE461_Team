@@ -2,5 +2,4 @@
 
 Team Members:
 Adam Kahl,
-Leyton Bostre,
-Anish Sudini,
+Leyton Bostre
