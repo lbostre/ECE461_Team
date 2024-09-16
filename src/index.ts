@@ -1,4 +1,5 @@
 import { getRepoContributors, getRepoPullRequests } from "./API/githubAPI.js";
+import { calculateBusFactor } from "./metrics/busFactor.js";
 import { calculateCorrectness } from './metrics/correctness.js';
 import { calculateResponsiveMaintainer } from "./metrics/responsiveMaintainer.js";
 
@@ -10,7 +11,7 @@ function hello(who: string = world): string {
 
 console.log(hello(world))
 
-//test
+// test
 //getRepoContributors('lbostre', 'ECE461_Team').then((r) => console.log(r));
 
 // Function to run a test for the correctness metric
@@ -56,4 +57,28 @@ console.log(hello(world))
 
     // Call the test function with the owner and repository name
     await testResponsiveMaintainerMetric(owner, repo);
+})();*/
+
+// Function to run a test for the correctness metric
+/*async function testBusFactorMetric(owner: string, repo: string) {
+    try {
+        console.log(`Testing bus factor for repository: ${owner}/${repo}...`);
+  
+        // Calculate correctness score for the given repository
+        const busFactor = await calculateBusFactor(owner, repo);
+    
+        // Log the result
+        console.log(`Bus Factor score for ${owner}/${repo}: ${busFactor}`);
+    } catch (error) {
+        console.error(`Error testing bus factor score for ${owner}/${repo}: ${error}`);
+    }
+}
+  
+// Example usage: Replace 'ownerName' and 'repoName' with the actual GitHub repository owner and name
+(async () => {
+    const owner = 'yargs'; // Example owner
+    const repo = 'yargs'; // Example repository name
+
+    // Call the test function with the owner and repository name
+    await testBusFactorMetric(owner, repo);
 })();*/

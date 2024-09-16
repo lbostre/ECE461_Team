@@ -95,6 +95,16 @@ export async function getRepoLicense(owner: string, repo: string) {
 	}
 }
 
+export async function getUserContributionStats(owner: string, repo: string, contributorLogin: string) {
+	const { data: commits } = await octokit.rest.repos.listCommits({
+		owner,
+		repo,
+		author: contributorLogin,
+		per_page: 100,
+	});
+	return commits.length;
+}
+
 // Get the list of workflow runs (CI pipelines) from GitHub Actions
 export async function getCiStatus(owner: string, repo: string) {
 	try {
