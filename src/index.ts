@@ -2,6 +2,7 @@ import { getRepoContributors, getRepoPullRequests } from "./API/githubAPI.js";
 import { calculateBusFactor } from "./metrics/busFactor.js";
 import { calculateCorrectness } from './metrics/correctness.js';
 import { calculateResponsiveMaintainer } from "./metrics/responsiveMaintainer.js";
+import { calculateRampUp } from "./metrics/rampUp.ts"; 
 
 const world = 'world!';
 
