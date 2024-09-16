@@ -1,5 +1,6 @@
 import { getRepoContributors, getRepoPullRequests } from "./API/githubAPI.js";
 import { calculateCorrectness } from './metrics/correctness.js';
+import { calculateResponsiveMaintainer } from "./metrics/responsiveMaintainer.js";
 
 const world = 'world!';
 
@@ -34,4 +35,25 @@ console.log(hello(world))
 
     // Call the test function with the owner and repository name
     await testCorrectnessMetric(owner, repo);
+})();*/
+
+// Function to run a test for the responsive maintainer metric
+/*async function testResponsiveMaintainerMetric(owner: string, repo: string) {
+    try {
+        console.log(`Testing responsive maintainer metric for repository: ${owner}/${repo}...`);
+        let medianResponseTime = await calculateResponsiveMaintainer(owner, repo);
+        // Convert median response time to hours for better readability
+        console.log(`Responsive maintainer score for ${owner}/${repo}: ${medianResponseTime.toFixed(2)}`);
+    } catch (error) {
+        console.error(`Error testing responsive maintainer metric for ${owner}/${repo}: ${error}`);
+    }
+}
+
+// Example usage: Replace 'ownerName' and 'repoName' with the actual GitHub repository owner and name
+(async () => {
+    const owner = 'microsoft'; // Example owner
+    const repo = 'TypeScript'; // Example repository name
+
+    // Call the test function with the owner and repository name
+    await testResponsiveMaintainerMetric(owner, repo);
 })();*/
