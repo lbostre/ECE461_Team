@@ -1,11 +1,13 @@
 import { Octokit } from '@octokit/rest';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 
 const execAsync = promisify(exec);
 
+dotenv.config();
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 
 const octokit = new Octokit({
@@ -40,10 +42,26 @@ export async function getRepoIssues(owner: string, repo: string) {
 		owner,
 		repo,
 		state: 'all', // Fetch both open and closed issues
+		per_page: 100, // Fetch maximum of 100 issues
 		});
 		return data;
 	} catch (error) {
 		console.error(`Error fetching issues for ${owner}/${repo}:`, error);
+		throw error;
+	}
+}
+
+// Get repository issue comments
+export async function getIssueComments(owner: string, repo: string, issueNumber: number) {
+	try {
+		const { data } = await octokit.rest.issues.listComments({
+		owner,
+		repo,
+		issue_number: issueNumber,
+		});
+		return data;
+	} catch (error) {
+		console.error(`Error fetching comments for issue #${issueNumber} in ${owner}/${repo}:`, error);
 		throw error;
 	}
 }
