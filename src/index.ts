@@ -1,85 +1,113 @@
-import { getRepoContributors, getRepoPullRequests } from "./API/githubAPI.js";
+import { cloneRepository, cleanUpRepository } from './API/githubAPI.js';
 import { calculateBusFactor } from "./metrics/busFactor.js";
 import { calculateCorrectness } from './metrics/correctness.js';
 import { calculateResponsiveMaintainer } from "./metrics/responsiveMaintainer.js";
-import { calculateRampUp } from "./metrics/rampUp.js"; 
+import { calculateRampUp } from "./metrics/rampUp.js";
+import { calculateLicenseCompatibility } from "./metrics/license.js";
 
-const world = 'world!';
-
-function hello(who: string = world): string {
-    return `Hello ${who}! `;
+interface PackageMetrics {
+    URL: string;
+    NetScore: number;
+    NetScore_Latency: number;
+    RampUp: number;
+    RampUp_Latency: number;
+    Correctness: number;
+    Correctness_Latency: number;
+    BusFactor: number;
+    BusFactor_Latency: number;
+    ResponsiveMaintainer: number;
+    ResponsiveMaintainer_Latency: number;
+    License: number;
+    License_Latency: number;
 }
 
-console.log(hello(world))
+// Helper function to calculate time taken for metric execution
+async function calculateWithLatency<T>(calculationFn: () => Promise<T>): Promise<{ value: T; latency: number }> {
+    const start = process.hrtime();
+    const value = await calculationFn();
+    const latency = process.hrtime(start);
+    const latencyInSeconds = latency[0] + latency[1] / 1e9; // Convert to seconds
+    return { value, latency: latencyInSeconds };
+}
 
-// test
-//getRepoContributors('lbostre', 'ECE461_Team').then((r) => console.log(r));
+// Main function to calculate metrics and produce the final output
+async function runMetrics(owner: string, repo: string, repoURL: string): Promise<PackageMetrics> {
+    const repoPath = await cloneRepository(owner, repo);
 
-// Function to run a test for the correctness metric
-/*async function testCorrectnessMetric(owner: string, repo: string) {
     try {
-        console.log(`Testing correctness for repository: ${owner}/${repo}...`);
-  
-        // Calculate correctness score for the given repository
-        const correctnessScore = await calculateCorrectness(owner, repo);
-    
-        // Log the result
-        console.log(`Correctness score for ${owner}/${repo}: ${correctnessScore}`);
-    } catch (error) {
-        console.error(`Error testing correctness for ${owner}/${repo}: ${error}`);
+        // Calculate Bus Factor and Latency
+        const { value: busFactor, latency: busFactorLatency } = await calculateWithLatency(() =>
+            calculateBusFactor(owner, repo)
+        );
+
+        // Calculate Correctness and Latency
+        const { value: correctness, latency: correctnessLatency } = await calculateWithLatency(() =>
+            calculateCorrectness(repoPath, owner, repo)
+        );
+
+        // Calculate Ramp-Up Time and Latency
+        const { value: rampUp, latency: rampUpLatency } = await calculateWithLatency(() =>
+            calculateRampUp(repoPath)
+        );
+
+        // Calculate Responsive Maintainer and Latency
+        const { value: responsiveMaintainer, latency: responsiveMaintainerLatency } = await calculateWithLatency(() =>
+            calculateResponsiveMaintainer(owner, repo)
+        );
+
+        // Calculate License Compatibility and Latency
+        const { value: license, latency: licenseLatency } = await calculateWithLatency(() =>
+            calculateLicenseCompatibility(repoPath)
+        );
+
+        // Compute the final NetScore
+        const netScore = 0.25 * busFactor + 0.20 * correctness + 0.20 * rampUp + 0.25 * responsiveMaintainer + 0.10 * license;
+
+        // Compute total latency
+        const netScoreLatency =
+        busFactorLatency +
+        correctnessLatency +
+        rampUpLatency +
+        responsiveMaintainerLatency +
+        licenseLatency;
+
+        return {
+            URL: repoURL,
+            NetScore: netScore,
+            NetScore_Latency: netScoreLatency,
+            RampUp: rampUp,
+            RampUp_Latency: rampUpLatency,
+            Correctness: correctness,
+            Correctness_Latency: correctnessLatency,
+            BusFactor: busFactor,
+            BusFactor_Latency: busFactorLatency,
+            ResponsiveMaintainer: responsiveMaintainer,
+            ResponsiveMaintainer_Latency: responsiveMaintainerLatency,
+            License: license,
+            License_Latency: licenseLatency,
+        };
+    } finally {
+        await cleanUpRepository(repoPath); // Clean up the repository after analysis
     }
 }
-  
-// Example usage: Replace 'ownerName' and 'repoName' with the actual GitHub repository owner and name
+
+// List of repositories to analyze
+const repositories = [
+  { owner: 'nullivex', repo: 'nodist', repoURL: 'https://github.com/nullivex/nodist' },
+  { owner: 'browserify', repo: 'browserify', repoURL: 'https://www.npmjs.com/package/browserify' },
+  { owner: 'cloudinary', repo: 'cloudinary_npm', repoURL: 'https://github.com/cloudinary/cloudinary_npm' },
+  { owner: 'lodash', repo: 'lodash', repoURL: 'https://github.com/lodash/lodash' },
+  { owner: 'expressjs', repo: 'express', repoURL: 'https://www.npmjs.com/package/express' },
+];
+
+// Run metrics for each repository
 (async () => {
-    const owner = 'microsoft'; // Example owner
-    const repo = 'TypeScript'; // Example repository name
-
-    // Call the test function with the owner and repository name
-    await testCorrectnessMetric(owner, repo);
-})();*/
-
-// Function to run a test for the responsive maintainer metric
-/*async function testResponsiveMaintainerMetric(owner: string, repo: string) {
-    try {
-        console.log(`Testing responsive maintainer metric for repository: ${owner}/${repo}...`);
-        let medianResponseTime = await calculateResponsiveMaintainer(owner, repo);
-        // Convert median response time to hours for better readability
-        console.log(`Responsive maintainer score for ${owner}/${repo}: ${medianResponseTime.toFixed(2)}`);
-    } catch (error) {
-        console.error(`Error testing responsive maintainer metric for ${owner}/${repo}: ${error}`);
+    for (const { owner, repo, repoURL } of repositories) {
+        try {
+            const metrics = await runMetrics(owner, repo, repoURL);
+            console.log(JSON.stringify(metrics, null, 2)); // Output the result in JSON format
+        } catch (error) {
+            console.error(`Failed to process ${repoURL}:`, error);
+        }
     }
-}
-
-// Example usage: Replace 'ownerName' and 'repoName' with the actual GitHub repository owner and name
-(async () => {
-    const owner = 'microsoft'; // Example owner
-    const repo = 'TypeScript'; // Example repository name
-
-    // Call the test function with the owner and repository name
-    await testResponsiveMaintainerMetric(owner, repo);
-})();*/
-
-// Function to run a test for the correctness metric
-/*async function testBusFactorMetric(owner: string, repo: string) {
-    try {
-        console.log(`Testing bus factor for repository: ${owner}/${repo}...`);
-  
-        // Calculate correctness score for the given repository
-        const busFactor = await calculateBusFactor(owner, repo);
-    
-        // Log the result
-        console.log(`Bus Factor score for ${owner}/${repo}: ${busFactor}`);
-    } catch (error) {
-        console.error(`Error testing bus factor score for ${owner}/${repo}: ${error}`);
-    }
-}
-  
-// Example usage: Replace 'ownerName' and 'repoName' with the actual GitHub repository owner and name
-(async () => {
-    const owner = 'yargs'; // Example owner
-    const repo = 'yargs'; // Example repository name
-
-    // Call the test function with the owner and repository name
-    await testBusFactorMetric(owner, repo);
-})();*/
+})();
