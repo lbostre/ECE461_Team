@@ -128,61 +128,30 @@ export async function getCiStatus(owner: string, repo: string) {
 	}
 }
 
-// Helper function to delete a folder recursively
-export async function deleteFolderRecursive(folderPath: string): Promise<void> {
-    if (fs.existsSync(folderPath)) {
-        fs.readdirSync(folderPath).forEach((file, index) => {
-            const curPath = path.join(folderPath, file);
-            if (fs.lstatSync(curPath).isDirectory()) {
-                deleteFolderRecursive(curPath);
-            } else {
-                fs.unlinkSync(curPath);
-            }
-        });
-        fs.rmdirSync(folderPath);
-    }
-}
-
-// Helper function to clone the repository locally and get all JavaScript files
+// Helper function to clone the repository locally
 export async function cloneRepository(owner: string, repo: string): Promise<string> {
 	const repoPath = `./repos/${owner}/${repo}`; // Full path to the cloned repository
 	
 	try {
-		// Increase Git's buffer size to avoid RPC issues
-		await execAsync('git config --global http.postBuffer 524288000'); // Set buffer size to 500MB
-	
-		// Perform a shallow clone to limit the history and fetch only the latest files
-		console.log(`Initializing a shallow clone of the repository: ${owner}/${repo}`);
-		await execAsync(`git clone --depth 1 --no-checkout https://github.com/${owner}/${repo}.git ${repoPath}`);
-		
-		// Configure sparse-checkout to include all JavaScript files from all levels and README.md
-		console.log('Configuring sparse-checkout for all JavaScript files and documentation recursively...');
-		await execAsync(`git -C ${repoPath} sparse-checkout init --cone`);
-		
-		// Use glob patterns to recursively include .js files and documentation files
-		await execAsync(`git -C ${repoPath} sparse-checkout set "**/*.js" "README.md" "LICENSE" "**/*.md" "src/" "tests/" "scripts/"`);
-	
-		// Checkout only the selected files
-		console.log('Checking out the selected files...');
-		await execAsync(`git -C ${repoPath} checkout`);
-		
-		console.log(`Repository cloned with all JavaScript and documentation files at: ${repoPath}`);
+		console.log(`Cloning repository ${owner}/${repo}...`);
+		await execAsync(`git clone https://github.com/${owner}/${repo}.git ${repoPath}`);
+		console.log(`Repository cloned at: ${repoPath}`);
 		return repoPath;
 	} catch (error) {
 		const err = error as Error;
-		console.error(`Error cloning repository with sparse-checkout: ${err.message}`);
-		throw new Error(`Failed to clone repository ${owner}/${repo} with sparse-checkout.`);
+		console.error(`Error cloning repository: ${err.message}`);
+		throw new Error(`Failed to clone repository ${owner}/${repo}`);
 	}
 }
-
-// Helper function to delete the cloned repository after static analysis
-export async function cleanUpRepository(repoPath: string): Promise<void> {
+  
+  // Helper function to delete the cloned repository after analysis
+  export async function cleanUpRepository(repoPath: string): Promise<void> {
 	try {
 		console.log(`Deleting repository at: ${repoPath}`);
-		await deleteFolderRecursive(repoPath);
+		await execAsync(`rm -rf ${repoPath}`);
 		console.log('Repository deleted successfully.');
 	} catch (error) {
 		console.error(`Error deleting repository: ${error}`);
-		throw new Error(`Failed to delete repository ${repoPath}.`);
+		throw new Error(`Failed to delete repository ${repoPath}`);
 	}
 }
