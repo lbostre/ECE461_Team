@@ -19,6 +19,7 @@
   "dependencies": {
     "@octokit/rest": "^21.0.2",
     "dotenv": "^16.4.5",
-    "esprima": "^4.0.1"
+    "esprima": "^4.0.1",
+    "workerpool": "^9.1.3"
   }
 }

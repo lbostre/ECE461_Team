@@ -2,8 +2,6 @@ import { Octokit } from '@octokit/rest';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as dotenv from 'dotenv';
-import * as fs from 'fs';
-import * as path from 'path';
 
 const execAsync = promisify(exec);
 
@@ -25,8 +23,8 @@ const octokit = new Octokit({
 export async function getRepoContributors(owner: string, repo: string) {
 	try {
 		const { data } = await octokit.rest.repos.listContributors({
-		owner,
-		repo,
+			owner,
+			repo,
 		});
 		return data;
 	} catch (error) {
@@ -39,10 +37,10 @@ export async function getRepoContributors(owner: string, repo: string) {
 export async function getRepoIssues(owner: string, repo: string) {
 	try {
 		const { data } = await octokit.rest.issues.listForRepo({
-		owner,
-		repo,
-		state: 'all', // Fetch both open and closed issues
-		per_page: 100, // Fetch maximum of 100 issues
+			owner,
+			repo,
+			state: 'all', // Fetch both open and closed issues
+			per_page: 100, // Fetch maximum of 100 issues
 		});
 		return data;
 	} catch (error) {
@@ -55,11 +53,11 @@ export async function getRepoIssues(owner: string, repo: string) {
 export async function getIssueComments(owner: string, repo: string, issueNumber: number) {
 	try {
 		const { data } = await octokit.rest.issues.listComments({
-		owner,
-		repo,
-		issue_number: issueNumber,
+			owner,
+			repo,
+			issue_number: issueNumber,
 		});
-		return data;
+	return data;
 	} catch (error) {
 		console.error(`Error fetching comments for issue #${issueNumber} in ${owner}/${repo}:`, error);
 		throw error;
@@ -70,11 +68,11 @@ export async function getIssueComments(owner: string, repo: string, issueNumber:
 export async function getRepoPullRequests(owner: string, repo: string) {
 	try {
 		const { data } = await octokit.rest.pulls.list({
-		owner,
-		repo,
-		state: 'all', // Fetch both open and closed PRs
-		});
-		return data;
+			owner,
+			repo,
+			state: 'all', // Fetch both open and closed PRs
+	});
+	return data;
 	} catch (error) {
 		console.error(`Error fetching pull requests for ${owner}/${repo}:`, error);
 		throw error;
@@ -85,8 +83,8 @@ export async function getRepoPullRequests(owner: string, repo: string) {
 export async function getRepoLicense(owner: string, repo: string) {
 	try {
 		const { data } = await octokit.rest.licenses.getForRepo({
-		owner,
-		repo,
+			owner,
+			repo,
 		});
 		return data;
 	} catch (error) {
@@ -108,19 +106,19 @@ export async function getUserContributionStats(owner: string, repo: string, cont
 // Get the list of workflow runs (CI pipelines) from GitHub Actions
 export async function getCiStatus(owner: string, repo: string) {
 	try {
-		const { data } = await octokit.rest.actions.listWorkflowRunsForRepo({
-		owner,
-		repo,
-		per_page: 100, // Fetch maximum of 100 workflow runs
+			const { data } = await octokit.rest.actions.listWorkflowRunsForRepo({
+			owner,
+			repo,
+			per_page: 100, // Fetch maximum of 100 workflow runs
 		});
 
 		// Only look at the recent CI runs (from the last 6 months)
 		const recentRuns = data.workflow_runs.filter(
-		(run: any) => new Date(run.created_at) > new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000)
+			(run: any) => new Date(run.created_at) > new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000)
 		);
 
 		return recentRuns.map((run: any) => ({
-		conclusion: run.conclusion, // e.g., "success", "failure"
+			conclusion: run.conclusion, // e.g., "success", "failure"
 		}));
 	} catch (error) {
 		console.error(`Error fetching CI status: ${error}`);
@@ -145,7 +143,7 @@ export async function cloneRepository(owner: string, repo: string): Promise<stri
 }
   
   // Helper function to delete the cloned repository after analysis
-  export async function cleanUpRepository(repoPath: string): Promise<void> {
+export async function cleanUpRepository(repoPath: string): Promise<void> {
 	try {
 		console.log(`Deleting repository at: ${repoPath}`);
 		await execAsync(`rm -rf ${repoPath}`);

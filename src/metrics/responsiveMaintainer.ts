@@ -77,12 +77,16 @@ export async function calculateIssueResolutionTime(owner: string, repo: string):
 
 // Function to calculate the responsive maintainer metric
 export async function calculateResponsiveMaintainer(owner: string, repo: string): Promise<number> {
-    const responseTimeScore = await calculateResponseTime(owner, repo);
-    // Print the response time score for debugging
-    // console.log('Response time score:', responseTimeScore);
-    const resolutionTimeScore = await calculateIssueResolutionTime(owner, repo);
-    // Print the resolution time score for debugging
-    // console.log('Resolution time score:', resolutionTimeScore);
-    // Normalize the scores to a scale of 0 to 1 and return
-    return (responseTimeScore + resolutionTimeScore) / 2; // Return the average score
+    try {
+        const responseTimeScore = await calculateResponseTime(owner, repo);
+        const resolutionTimeScore = await calculateIssueResolutionTime(owner, repo);
+
+        // Ensure that we return a valid score and handle potential NaN
+        return isNaN(responseTimeScore) || isNaN(resolutionTimeScore)
+            ? 0
+            : (responseTimeScore + resolutionTimeScore) / 2;
+    } catch (error) {
+        console.error(`Error calculating responsive maintainer metric: ${error}`);
+        return 0;
+    }
 }

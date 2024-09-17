@@ -77,11 +77,18 @@ async function performStaticAnalysis(repoPath: string): Promise<number> {
 export async function calculateCorrectness(repoPath: string, owner: string, repo: string): Promise<number> {
     try {
         const ciStatus = await getCiStatus(owner, repo);
-        const successRate = ciStatus.filter(run => run.conclusion === 'success').length / ciStatus.length;
-    
+        
+        // If no workflow runs are found, set success rate to 0
+        const successRate = ciStatus.length > 0
+            ? ciStatus.filter(run => run.conclusion === 'success').length / ciStatus.length
+            : 0;
+
         const issueResolutionRate = await getIssueResolutionRate(owner, repo);
         const staticAnalysisScore = await performStaticAnalysis(repoPath);
+
+        // Correctness score calculation
         const correctnessScore = (0.4 * successRate) + (0.4 * issueResolutionRate) + (0.2 * staticAnalysisScore);
+
         return correctnessScore;
     } catch (error) {
         console.error(`Error calculating correctness: ${error}`);
