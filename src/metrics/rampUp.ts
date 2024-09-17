@@ -41,8 +41,8 @@ export async function calculateRampUp(repoPath: string): Promise<number> {
 		// Evaluate the documentation and return the score
 		const documentationScore = evaluateDocumentation(repoPath);
 		return documentationScore;
-  } catch (error) {
+  	} catch (error) {
 		console.error(`Error calculating ramp-up time: ${error}`);
 		return 0; // Return 0 if there was an error
-  }
+  	}
 }
