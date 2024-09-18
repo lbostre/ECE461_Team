@@ -35,5 +35,5 @@ export async function calculateBusFactor(owner: string, repo: string) {
         }
     }
 
-    return busFactor / contributors.length
+    return Math.round(busFactor / contributors.length * 10000) / 10000
 }
