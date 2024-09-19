@@ -2,7 +2,7 @@ import {expect, test} from "vitest"
 import { calculateRampUp } from '../metrics/rampUp';
 
 test("ramp up time for Wat4hjs to be medium (in between .33 and .67)", async () => {
-    const result = await calculateRampUp("https://github.com/browserify/browserify")
+    const result = await calculateRampUp("https://github.com/hasansultan92/watch.js")
     expect(result).toBeGreaterThanOrEqual(.33)
     expect(result).toBeLessThanOrEqual(.67)
 }, 60000)
