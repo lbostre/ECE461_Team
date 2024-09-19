@@ -115,26 +115,24 @@ const argv = yargs(process.argv.slice(2))
     })
     .argv;
 
-    export function getRepositoriesFromFile(filePath: string): { owner: string; repo: string; repoURL: string }[] {
-        const content = fs.readFileSync(filePath, 'utf-8');
-        const urls = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    
-        const repositories = urls.map(url => {
-            const githubMatch = /https:\/\/github\.com\/([^\/]+)\/([^\/]+)/.exec(url);
-            const npmMatch = /https:\/\/www\.npmjs\.com\/package\/([^\/]+)/.exec(url);
-            
-            if (githubMatch) {
-                const owner = githubMatch[1];
-                const repo = githubMatch[2];
-                return { owner, repo, repoURL: url };
-            } else if (npmMatch) {
-                const owner = npmMatch[1];
-                const repo = owner; // For npm, we assume the package name is the same as the owner
-                return { owner, repo, repoURL: url };
-            }
-            
-            return null; // Return null for unsupported URLs
-        }).filter((repo): repo is { owner: string; repo: string; repoURL: string } => repo !== null); // Filter out null values
-    
-        return repositories;
-    }
+export function getRepositoriesFromFile(filePath: string): { owner: string; repo: string; repoURL: string }[] {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const urls = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const repositories = urls.map(url => {
+        const githubMatch = /https:\/\/github\.com\/([^\/]+)\/([^\/]+)/.exec(url);
+        const npmMatch = /https:\/\/www\.npmjs\.com\/package\/([^\/]+)/.exec(url);
+        
+        if (githubMatch) {
+            const owner = githubMatch[1];
+            const repo = githubMatch[2];
+            return { owner, repo, repoURL: url };
+        } else if (npmMatch) {
+            const owner = npmMatch[1];
+            const repo = owner; // For npm, we assume the package name is the same as the owner
+            return { owner, repo, repoURL: url };
+        }
+        
+        return null; // Return null for unsupported URLs
+    }).filter((repo): repo is { owner: string; repo: string; repoURL: string } => repo !== null); // Filter out null values
+    return repositories;
+}
