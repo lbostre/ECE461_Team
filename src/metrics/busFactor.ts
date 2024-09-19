@@ -26,14 +26,18 @@ export async function calculateBusFactor(owner: string, repo: string) {
     let accumulatedContributions = 0;
     let busFactor = 0;
 
-    // Identify the smallest number of contributors that account for >50% of contributions
+    // Identify the smallest number of contributors that account for >75% of contributions
     for (const contribution of contributions) {
         accumulatedContributions += contribution.contributionCount;
         busFactor += 1;
-        if (accumulatedContributions >= totalContributions / 2) {
+        if (accumulatedContributions >= totalContributions * .75) {
             break;
         }
     }
 
-    return busFactor / contributors.length
+    if(contributors.length == 1) {
+        return 0
+    }
+
+    return Math.round(busFactor / contributors.length * 10000) / 10000
 }
