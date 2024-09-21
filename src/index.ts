@@ -1,9 +1,12 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 import { Worker } from 'worker_threads';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import yargs from 'yargs';
 import fs from 'fs';
-
+import https from 'https';
+import { logInfo, logDebug, logError } from './logger.js'; 
+import yargs from 'yargs';
 
 // Simulate __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -31,74 +34,145 @@ interface PackageMetrics {
 // Helper function to run a worker thread
 function runWorker(workerData: any): Promise<PackageMetrics> {
     return new Promise((resolve, reject) => {
+        logDebug(`Starting worker for ${JSON.stringify(workerData)}`);
         const worker = new Worker(WORKER_SCRIPT_PATH, { workerData });
-        worker.on('message', resolve);
-        worker.on('error', reject);
+        worker.on('message', (message) => {
+            logInfo(`Worker completed: ${JSON.stringify(message)}`);
+            resolve(message);
+        });
+        worker.on('error', (error) => {
+            logError(`Worker encountered error: ${error.message}`);
+            reject(error);
+        });
         worker.on('exit', (code) => {
             if (code !== 0) {
+                logError(`Worker stopped with exit code ${code}`);
                 reject(new Error(`Worker stopped with exit code ${code}`));
             }
         });
     });
 }
 
-// List of repositories to analyze
-// const repositories = [
-//     { owner: 'nullivex', repo: 'nodist', repoURL: 'https://github.com/nullivex/nodist' },
-//     { owner: 'browserify', repo: 'browserify', repoURL: 'https://www.npmjs.com/package/browserify' },
-//     { owner: 'cloudinary', repo: 'cloudinary_npm', repoURL: 'https://github.com/cloudinary/cloudinary_npm' },
-//     { owner: 'lodash', repo: 'lodash', repoURL: 'https://github.com/lodash/lodash' },
-//     { owner: 'expressjs', repo: 'express', repoURL: 'https://www.npmjs.com/package/express' },
-// ];
-
 // Main function to run metrics for each repository
-async function runMetricsForAllRepos(repositories: { owner: string; repo: string; repoURL: string }[]) {
+export async function runMetricsForAllRepos(repositories: { owner: string; repo: string; repoURL: string }[]) {
     const results: PackageMetrics[] = [];
-
-    const tasks = repositories.map(({ owner, repo, repoURL }) => {
-        return runWorker({ owner, repo, repoURL });
-    });
+    const tasks = repositories.map(({ owner, repo, repoURL }) => runWorker({ owner, repo, repoURL }));
 
     try {
-        // Run all tasks concurrently using worker threads
+        logInfo(`Starting metrics analysis for ${repositories.length} repositories.`);
         const metricsResults = await Promise.all(tasks);
         results.push(...metricsResults);
         results.forEach(result => console.log(JSON.stringify(result, null, 2)));
+        results.forEach(result => logInfo(`Metrics result: ${JSON.stringify(result)}`));
     } catch (error) {
-        console.error('Error running metrics in worker threads:', error);
+        logError(`Error running metrics in worker threads: ${error}`);
     }
 }
 
-// Helper function to validate the file path
+export async function getRepoFromNpm(packageName: string): Promise<{ owner: string; repo: string } | null> {
+    return new Promise((resolve, reject) => {
+        logInfo(`Fetching repository information for npm package: ${packageName}`);
+        const options = {
+            hostname: 'registry.npmjs.org',
+            path: `/${packageName}`,
+            method: 'GET',
+        };
+
+        const req = https.request(options, (res) => {
+            let data = '';
+
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+
+            res.on('end', () => {
+                try {
+                    const packageData = JSON.parse(data);
+
+                    if (packageData.repository && packageData.repository.url) {
+                        let repoUrl = packageData.repository.url;
+                        repoUrl = repoUrl.replace(/^git\+/, '').replace(/\.git$/, '');
+
+                        const githubRegex = /(?:https:\/\/github\.com\/|ssh:\/\/git@github\.com[:\/])([^\/]+)\/([^\/]+)/;
+                        const match = repoUrl.match(githubRegex);
+
+                        if (match && match.length >= 3) {
+                            const owner = match[1];
+                            const repo = match[2];
+                            logInfo(`Repository found: ${owner}/${repo}`);
+                            resolve({ owner, repo });
+                        } else {
+                            logError(`Invalid repository URL format: ${repoUrl}`);
+                            resolve(null);
+                        }
+                    } else {
+                        logError(`Repository URL not found for package: ${packageName}`);
+                        resolve(null);
+                    }
+                } catch (error) {
+                    logError(`Error parsing package metadata for ${packageName}: ${error}`);
+                    reject(error);
+                }
+            });
+        });
+
+        req.on('error', (error) => {
+            logError(`Error fetching package data for ${packageName}: ${error}`);
+            reject(error);
+        });
+
+        req.end();
+    });
+}
+
+export async function getRepositoriesFromFile(filePath: string): Promise<{ owner: string; repo: string; repoURL: string }[]> {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const urls = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+
+    const repositories = await Promise.all(urls.map(async (url) => {
+        const githubMatch = /https:\/\/github\.com\/([^\/]+)\/([^\/]+?)(?:\.git)?$/.exec(url);
+        const npmMatch = /https:\/\/www\.npmjs\.com\/package\/([^\/]+)/.exec(url);
+
+        if (githubMatch) {
+            const owner = githubMatch[1];
+            const repo = githubMatch[2];
+            logInfo(`Found GitHub repository: ${owner}/${repo}`);
+            return { owner, repo, repoURL: `https://github.com/${owner}/${repo}` };
+        } else if (npmMatch) {
+            const npmPackageName = npmMatch[1];
+            logInfo(`Fetching repository for npm package: ${npmPackageName}`);
+            const repoData = await getRepoFromNpm(npmPackageName);
+            if (repoData) {
+                return { owner: repoData.owner, repo: repoData.repo, repoURL: `https://github.com/${repoData.owner}/${repoData.repo}` };
+            }
+        }
+
+        logError(`No valid repository found for URL: ${url}`);
+        return null;
+    }));
+
+    return repositories.filter((repo): repo is { owner: string; repo: string; repoURL: string } => repo !== null);
+}
+
 function validateFilePath(filePath: string): boolean {
     try {
-        // Check if the file exists
-        fs.accessSync(filePath as string, fs.constants.F_OK);
-        
-        // Check if the file is a valid text file
-        const fileStats = fs.statSync(filePath as string);
-        if (!fileStats.isFile() || !(filePath as string).endsWith('.txt')) {
+        fs.accessSync(filePath, fs.constants.F_OK);
+        const fileStats = fs.statSync(filePath);
+        if (!fileStats.isFile() || !filePath.endsWith('.txt')) {
+            logError(`Invalid file type or missing file: ${filePath}`);
             return false;
         }
-        
         return true;
     } catch (error) {
+        logError(`Error validating file path: ${filePath} - ${error}`);
         return false;
     }
 }
 
 // Main CLI logic
 const argv = yargs(process.argv.slice(2))
-    .command('install', 'Install dependencies', () => {}, (argv) => {
-        console.log('Installing dependencies...');
-        // Logic to install dependencies goes here
-    })
-    .command('test', 'Run tests', () => {}, (argv) => {
-        console.log('Running tests...');
-        // Logic to run tests goes here
-    })
     .demandCommand(0, 1, 'You need to provide a command or a file path')
-    .check((argv) => {
+    .check(async (argv) => {
         // Print the filepath if provided
         if (argv._.length === 1) {
             const filePath = argv._[0] as string;
@@ -106,33 +180,9 @@ const argv = yargs(process.argv.slice(2))
                 throw new Error('Invalid file path provided');
             }
         }
-        // Open the text file and read the URLs
-
-        const repositoriesFromFile = getRepositoriesFromFile(argv._[0] as string);
-        console.log(repositoriesFromFile);
-        runMetricsForAllRepos(repositoriesFromFile);
+        const repositoriesFromFile = await getRepositoriesFromFile(argv._[0] as string);
+        logInfo(`Repositories from file: ${JSON.stringify(repositoriesFromFile)}`);
+        await runMetricsForAllRepos(repositoriesFromFile);
         return true;
     })
     .argv;
-
-export function getRepositoriesFromFile(filePath: string): { owner: string; repo: string; repoURL: string }[] {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const urls = content.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    const repositories = urls.map(url => {
-        const githubMatch = /https:\/\/github\.com\/([^\/]+)\/([^\/]+)/.exec(url);
-        const npmMatch = /https:\/\/www\.npmjs\.com\/package\/([^\/]+)/.exec(url);
-        
-        if (githubMatch) {
-            const owner = githubMatch[1];
-            const repo = githubMatch[2];
-            return { owner, repo, repoURL: url };
-        } else if (npmMatch) {
-            const owner = npmMatch[1];
-            const repo = owner; // For npm, we assume the package name is the same as the owner
-            return { owner, repo, repoURL: url };
-        }
-        
-        return null; // Return null for unsupported URLs
-    }).filter((repo): repo is { owner: string; repo: string; repoURL: string } => repo !== null); // Filter out null values
-    return repositories;
-}
