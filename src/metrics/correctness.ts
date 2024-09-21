@@ -2,9 +2,11 @@ import { getCiStatus, getRepoIssues } from '../API/githubAPI.js'; // Import API 
 import * as esprima from 'esprima'; // For static analysis
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { logInfo, logDebug, logError } from '../logger.js'; 
 
 // Helper function to calculate the issue resolution rate
 async function getIssueResolutionRate(owner: string, repo: string): Promise<number> {
+    logInfo(`Fetching issue resolution rate for ${owner}/${repo}`);
     try {
         const issues = await getRepoIssues(owner, repo);
 
@@ -15,15 +17,18 @@ async function getIssueResolutionRate(owner: string, repo: string): Promise<numb
         const totalIssues = recentIssues.length;
         const closedIssues = recentIssues.filter((issue: any) => issue.state === 'closed').length;
 
-        return totalIssues > 0 ? closedIssues / totalIssues : 1;
+        const resolutionRate = totalIssues > 0 ? closedIssues / totalIssues : 1;
+        logDebug(`Issue resolution rate for ${owner}/${repo}: ${resolutionRate}`);
+        return resolutionRate;
     } catch (error) {
-        console.error(`Error fetching issue data: ${error}`);
+        logError(`Error fetching issue data for ${owner}/${repo}: ${error}`);
         return 0;
     }
 }
 
 // Helper function to find JavaScript files
 async function findJavaScriptFiles(dir: string): Promise<string[]> {
+    logInfo(`Finding JavaScript files in directory: ${dir}`);
     let jsFiles: string[] = [];
 
     try {
@@ -38,8 +43,10 @@ async function findJavaScriptFiles(dir: string): Promise<string[]> {
                 jsFiles.push(fullPath);
             }
         }
+
+        logDebug(`Found ${jsFiles.length} JavaScript files in directory: ${dir}`);
     } catch (error) {
-        console.error(`Error reading directory ${dir}: ${error}`);
+        logError(`Error reading directory ${dir}: ${error}`);
     }
 
     return jsFiles;
@@ -47,10 +54,12 @@ async function findJavaScriptFiles(dir: string): Promise<string[]> {
 
 // Helper function to perform static analysis using Esprima
 async function performStaticAnalysis(repoPath: string): Promise<number> {
+    logInfo(`Performing static analysis on ${repoPath}`);
     try {
         const jsFiles = await findJavaScriptFiles(repoPath);
         
         if (jsFiles.length === 0) {
+            logInfo('No JavaScript files found, returning full score (1).');
             return 1; // No JS files means no issues, return 1 (full score)
         }
     
@@ -63,18 +72,22 @@ async function performStaticAnalysis(repoPath: string): Promise<number> {
                 esprima.parseScript(code, { tolerant: true });
             } catch (error) {
                 issueCount += 1;
+                logDebug(`Syntax error found in file: ${file}`);
             }
         }
 
-        return totalCount > 0 ? 1 - issueCount / totalCount : 1;
+        const staticAnalysisScore = totalCount > 0 ? 1 - issueCount / totalCount : 1;
+        logInfo(`Static analysis score for ${repoPath}: ${staticAnalysisScore}`);
+        return staticAnalysisScore;
     } catch (error) {
-        console.error(`Error during static analysis: ${error}`);
+        logError(`Error during static analysis for ${repoPath}: ${error}`);
         return 0;
     }
 }
 
 // Combine everything to calculate correctness
 export async function calculateCorrectness(repoPath: string, owner: string, repo: string): Promise<number> {
+    logInfo(`Calculating correctness for ${owner}/${repo}`);
     try {
         const ciStatus = await getCiStatus(owner, repo);
         
@@ -83,15 +96,18 @@ export async function calculateCorrectness(repoPath: string, owner: string, repo
             ? ciStatus.filter(run => run.conclusion === 'success').length / ciStatus.length
             : 0;
 
+        logDebug(`CI success rate for ${owner}/${repo}: ${successRate}`);
+
         const issueResolutionRate = await getIssueResolutionRate(owner, repo);
         const staticAnalysisScore = await performStaticAnalysis(repoPath);
 
         // Correctness score calculation
         const correctnessScore = (0.4 * successRate) + (0.4 * issueResolutionRate) + (0.2 * staticAnalysisScore);
 
+        logInfo(`Correctness score for ${owner}/${repo}: ${correctnessScore}`);
         return correctnessScore;
     } catch (error) {
-        console.error(`Error calculating correctness: ${error}`);
+        logError(`Error calculating correctness for ${owner}/${repo}: ${error}`);
         return 0;
     }
 }

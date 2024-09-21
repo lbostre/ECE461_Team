@@ -1,4 +1,5 @@
 import { getRepoIssues, getIssueComments } from '../API/githubAPI.js'; // Import API functions
+import { logInfo, logDebug, logError } from '../logger.js'; // Import logging functions
 
 // Thresholds for response and resolution times can be adjusted as needed
 const RESPONSE_TIME_THRESH = 48; // 48 hours
@@ -8,11 +9,14 @@ const RESOLUTION_TIME_THRESH = 30 * 24; // 30 days
 // Return value is normalized to a scale of 0 to 1
 async function calculateResponseTime(owner: string, repo: string): Promise<number> {
     try {
+        logInfo(`Calculating response time for repository ${owner}/${repo}`);
         const issues = await getRepoIssues(owner, repo);
         const threeMonthsAgo = new Date(Date.now() - 3 * 30 * 24 * 60 * 60 * 1000);
         
         // Filter issues created in the last 3 months
         const recentIssues = issues.filter((issue: any) => new Date(issue.created_at) > threeMonthsAgo);
+        
+        logDebug(`Found ${recentIssues.length} recent issues for ${owner}/${repo}`);
         
         // Calculate response times
         const responseTimes = await Promise.all(recentIssues.map(async (issue: any) => {
@@ -21,19 +25,21 @@ async function calculateResponseTime(owner: string, repo: string): Promise<numbe
             return firstResponse ? (new Date(firstResponse.created_at).getTime() - new Date(issue.created_at).getTime()) / (1000 * 60 * 60) : null;
         }));
         
-        // Filter out null response times and calculate mean (for debugging)
+        // Filter out null response times and calculate mean
         const validResponseTimes = responseTimes.filter(time => time !== null).sort((a, b) => a - b);
         const mean = validResponseTimes.length > 0 ? validResponseTimes.reduce((a, b) => a + b) / validResponseTimes.length : 0;
-        // console.log('Mean response time:', mean.toFixed(2), 'hours');
-        // Print the max and min response times for debugging
-        // console.log('Max response time:', Math.max(...validResponseTimes).toFixed(2), 'hours');
-        // console.log('Min response time:', Math.min(...validResponseTimes).toFixed(2), 'hours');
+        
+        logDebug(`Mean response time for ${owner}/${repo}: ${mean.toFixed(2)} hours`);
+        
         // Calculate and return the percent of issues with responses in the last 48 hours
         const responsesIn48Hours = validResponseTimes.filter(time => time <= RESPONSE_TIME_THRESH).length;
-        return responsesIn48Hours / validResponseTimes.length;
+        const responseScore = responsesIn48Hours / validResponseTimes.length;
+        
+        logInfo(`Response time score for ${owner}/${repo}: ${responseScore}`);
+        return responseScore;
 
     } catch (error) {
-        console.error(`Error calculating median response time for ${owner}/${repo}:`, error);
+        logError(`Error calculating response time for ${owner}/${repo}: ${error}`);
         return 0;
     }
 }
@@ -42,11 +48,14 @@ async function calculateResponseTime(owner: string, repo: string): Promise<numbe
 // Return value is normalized to a scale of 0 to 1
 export async function calculateIssueResolutionTime(owner: string, repo: string): Promise<number> {
     try {
+        logInfo(`Calculating issue resolution time for repository ${owner}/${repo}`);
         const issues = await getRepoIssues(owner, repo);
         const threeMonthsAgo = new Date(Date.now() - 3 * 30 * 24 * 60 * 60 * 1000);
         
         // Filter issues created in the last 3 months
         const recentIssues = issues.filter((issue: any) => new Date(issue.created_at) > threeMonthsAgo);
+        
+        logDebug(`Found ${recentIssues.length} recent issues for ${owner}/${repo}`);
         
         // Calculate resolution times
         const resolutionTimes = await Promise.all(recentIssues.map(async (issue: any) => {
@@ -58,19 +67,21 @@ export async function calculateIssueResolutionTime(owner: string, repo: string):
             return null;
         }));
         
-        // Filter out null resolution times and calculate mean (for debugging)
+        // Filter out null resolution times and calculate mean
         const validResolutionTimes = resolutionTimes.filter(time => time !== null).sort((a, b) => a - b);
         const mean = validResolutionTimes.length > 0 ? validResolutionTimes.reduce((a, b) => a + b) / validResolutionTimes.length : 0;
-        // console.log('Mean resolution time:', mean.toFixed(2), 'hours');
-        // Print the max and min resolution times for debugging
-        // console.log('Max resolution time:', Math.max(...validResolutionTimes).toFixed(2), 'hours');
-        // console.log('Min resolution time:', Math.min(...validResolutionTimes).toFixed(2), 'hours');
+        
+        logDebug(`Mean resolution time for ${owner}/${repo}: ${mean.toFixed(2)} hours`);
+        
         // Calculate and return the percent of issues resolved within the threshold
         const resolvedWithinThreshold = validResolutionTimes.filter(time => time <= RESOLUTION_TIME_THRESH).length;
-        return resolvedWithinThreshold / validResolutionTimes.length;
+        const resolutionScore = resolvedWithinThreshold / validResolutionTimes.length;
+        
+        logInfo(`Issue resolution time score for ${owner}/${repo}: ${resolutionScore}`);
+        return resolutionScore;
 
     } catch (error) {
-        console.error(`Error calculating issue resolution time for ${owner}/${repo}:`, error);
+        logError(`Error calculating issue resolution time for ${owner}/${repo}: ${error}`);
         return 0;
     }
 }
@@ -78,15 +89,18 @@ export async function calculateIssueResolutionTime(owner: string, repo: string):
 // Function to calculate the responsive maintainer metric
 export async function calculateResponsiveMaintainer(owner: string, repo: string): Promise<number> {
     try {
+        logInfo(`Calculating responsive maintainer metric for ${owner}/${repo}`);
         const responseTimeScore = await calculateResponseTime(owner, repo);
         const resolutionTimeScore = await calculateIssueResolutionTime(owner, repo);
 
-        // Ensure that we return a valid score and handle potential NaN
-        return isNaN(responseTimeScore) || isNaN(resolutionTimeScore)
+        const finalScore = isNaN(responseTimeScore) || isNaN(resolutionTimeScore)
             ? 0
             : (responseTimeScore + resolutionTimeScore) / 2;
+
+        logInfo(`Final responsive maintainer score for ${owner}/${repo}: ${finalScore}`);
+        return finalScore;
     } catch (error) {
-        console.error(`Error calculating responsive maintainer metric: ${error}`);
+        logError(`Error calculating responsive maintainer metric: ${error}`);
         return 0;
     }
 }

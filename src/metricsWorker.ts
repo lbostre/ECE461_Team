@@ -5,6 +5,7 @@ import { calculateCorrectness } from './metrics/correctness.js';
 import { calculateResponsiveMaintainer } from './metrics/responsiveMaintainer.js';
 import { calculateRampUp } from './metrics/rampUp.js';
 import { calculateLicenseCompatibility } from './metrics/license.js';
+import { logInfo, logDebug, logError } from './logger.js';  
 
 // Extract workerData (owner, repo, repoURL)
 const { owner, repo, repoURL } = workerData;
@@ -15,14 +16,17 @@ async function calculateWithLatency<T>(calculationFn: () => Promise<T>): Promise
     const value = await calculationFn();
     const latency = process.hrtime(start);
     const latencyInSeconds = latency[0] + latency[1] / 1e9; // Convert to seconds
+    logDebug(`Metric calculation took ${latencyInSeconds.toFixed(3)} seconds.`);
     return { value, latency: latencyInSeconds };
 }
 
 // Main function to calculate metrics for a single repository
 (async () => {
+    logInfo(`Cloning repository ${owner}/${repo} from ${repoURL}...`);
     const repoPath = await cloneRepository(owner, repo);
 
     try {
+        logInfo(`Calculating metrics for repository ${owner}/${repo}...`);
         const [busFactorResult, correctnessResult, rampUpResult, responsiveMaintainerResult, licenseResult] = await Promise.all([
             calculateWithLatency(() => calculateBusFactor(owner, repo)),
             calculateWithLatency(() => calculateCorrectness(repoPath, owner, repo)),
@@ -36,6 +40,8 @@ async function calculateWithLatency<T>(calculationFn: () => Promise<T>): Promise
                         0.20 * rampUpResult.value + 
                         0.25 * responsiveMaintainerResult.value + 
                         0.10 * licenseResult.value;
+
+        logInfo(`Metrics calculation completed for ${owner}/${repo}. NetScore: ${netScore.toFixed(3)}`);
 
         const result = {
             URL: repoURL,
@@ -56,8 +62,11 @@ async function calculateWithLatency<T>(calculationFn: () => Promise<T>): Promise
         // Return result to main thread
         parentPort?.postMessage(result);
     } catch (error) {
+        logError(`Error calculating metrics for ${owner}/${repo}: ${error}`);
         parentPort?.postMessage({ error });
     } finally {
+        logInfo(`Cleaning up repository ${repoPath}`);
         await cleanUpRepository(repoPath);
+        logInfo(`Repository cleanup completed for ${repoPath}`);
     }
 })();
