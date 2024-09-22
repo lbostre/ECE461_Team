@@ -38,7 +38,7 @@ function evaluateDocumentation(repoPath: string): number {
     if (hasInstallation) score += 0.3;
     if (hasUsage) score += 0.3;
     if (hasAPI) score += 0.2;
-    if (hasDependencies) += 0.1;
+    if (hasDependencies) score += 0.1;
     score += Math.min(codeExampleCount * 0.1, 0.2); // max 0.2 points for examples
 
     // Normalize the score
