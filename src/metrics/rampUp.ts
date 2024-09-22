@@ -22,11 +22,13 @@ function evaluateDocumentation(repoPath: string): number {
     const installationPattern = /installation/i;
     const usagePattern = /usage/i;
     const apiPattern = /api/i;
+    const dependenciesPattern = /dependencies/i;
 
     // Check for presence of key sections
     const hasInstallation = installationPattern.test(content);
     const hasUsage = usagePattern.test(content);
     const hasAPI = apiPattern.test(content);
+    const hasDependencies = dependenciesPattern.test(content);
 
     // Count code examples (assuming code blocks use triple backticks)
     const codeExampleCount = (content.match(/```/g) || []).length / 2;
@@ -36,6 +38,7 @@ function evaluateDocumentation(repoPath: string): number {
     if (hasInstallation) score += 0.3;
     if (hasUsage) score += 0.3;
     if (hasAPI) score += 0.2;
+    if (hasDependencies) += .1;
     score += Math.min(codeExampleCount * 0.1, 0.2); // max 0.2 points for examples
 
     // Normalize the score
