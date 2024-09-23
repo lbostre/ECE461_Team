@@ -5,3 +5,4 @@ dist/
 coverage
 repos
 logs
+test-output.txt

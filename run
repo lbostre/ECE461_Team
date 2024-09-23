@@ -52,22 +52,38 @@ case $COMMAND in
   test)
     echo "Running test suite with Vitest..."
 
-    # Run tests with coverage using vitest
-    npx vitest run --coverage --no-color
+    # Run tests and save output to test-output.txt, stripping ANSI characters
+    npm test > test-output.txt 2>&1
     TEST_EXIT_CODE=$?
 
-    # Check if coverage-summary.json exists
-    COVERAGE_SUMMARY="./coverage/coverage-summary.json"
-    if [ ! -f "$COVERAGE_SUMMARY" ]; then
-      echo "Error: coverage-summary.json not found."
+    # Check if the test-output.txt exists
+    TEST_OUTPUT="./test-output.txt"
+    if [ ! -f "$TEST_OUTPUT" ]; then
+      echo "Error: test-output.txt not found."
       exit 1
     fi
 
-    # Extract values from coverage-summary.json
-    TOTAL_TESTS=$(jq '.total.lines.total' "$COVERAGE_SUMMARY")
-    TEST_PASSED=$(jq '.total.lines.covered' "$COVERAGE_SUMMARY")
-    COVERAGE_PERCENTAGE=$(jq '.total.lines.pct' "$COVERAGE_SUMMARY")
+    # Extract total tests and passed tests
+    TOTAL_TESTS=$(grep "Tests" $TEST_OUTPUT | awk '{print $4}')
+    TEST_PASSED=$(grep "Tests" test-output.txt | grep -oP "\(\K\d+(?=\))")
 
+    # Extract coverage percentage
+    COVERAGE_PERCENTAGE=$(grep -oP 'Coverage for lines \(\K\d+.\d+(?=%)' $TEST_OUTPUT)
+
+    # If extraction fails, set defaults to 0
+    if [ -z "$TOTAL_TESTS" ]; then
+      TOTAL_TESTS='fail'
+    fi
+
+    if [ -z "$TEST_PASSED" ]; then
+      TEST_PASSED='fail'
+    fi
+
+    if [ -z "$COVERAGE_PERCENTAGE" ]; then
+      COVERAGE_PERCENTAGE=0
+    fi
+
+    # Output the required structure
     echo "Total: $TOTAL_TESTS"
     echo "Passed: $TEST_PASSED"
     echo "Coverage: $COVERAGE_PERCENTAGE%"
@@ -80,7 +96,7 @@ case $COMMAND in
       exit 1
     fi
     ;;
-
+  
   *)
     # Assume the command is a file path (for the URL file scenario)
     URL_FILE=$COMMAND

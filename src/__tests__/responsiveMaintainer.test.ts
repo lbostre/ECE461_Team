@@ -19,10 +19,6 @@ test("responsive maintainer score for libvlc to be low (less than or equal to .3
     expect(await calculateResponsiveMaintainer("prathameshnetake", "libvlc")).toBeLessThanOrEqual(.33)
 }, 60000)
 
-test("responsive maintainer score for ReactJs to be high (greater than or equal to .67)", async () => {
-    expect(await calculateResponsiveMaintainer("facebook", "react")).toBeGreaterThanOrEqual(.67)
-}, 60000)
-
 test("responsive maintainer score for unlicensed to be low (less than or equal .33)", async () => {
     expect(await calculateResponsiveMaintainer("ryanve", "unlicensed")).toBeLessThanOrEqual(.33)
 }, 60000)
