@@ -13,6 +13,9 @@ if (!fs.existsSync(logDir)) {
     fs.mkdirSync(logDir, { recursive: true });
 }
 
+// Overwrite the log file at the start of the run
+fs.writeFileSync(logFile, ''); // This clears or creates the log file at the start
+
 // Log function
 function appendLog(message: string) {
     fs.appendFileSync(logFile, message);
